@@ -480,7 +480,7 @@ bool Adafruit_SSD1306::begin(uint8_t vcs, uint8_t addr, bool reset,
   // Setup pin directions
   if (wire) { // Using I2C
     // If I2C address is unspecified, use default
-    // (0x3C for 32-pixel-tall displays, 0x3D for all others).
+    // (0x3C for 32-pixel-tall displays, 0x3D for all others).    
     i2caddr = addr ? addr : ((HEIGHT == 32) ? 0x3C : 0x3D);
     // TwoWire begin() function might be already performed by the calling
     // function if it has unusual circumstances (e.g. TWI variants that
@@ -553,6 +553,8 @@ bool Adafruit_SSD1306::begin(uint8_t vcs, uint8_t addr, bool reset,
 
   uint8_t comPins = 0x02;
   contrast = 0x8F;
+  colStartAddr = 0;
+  colEndAddr = WIDTH;
 
   if ((WIDTH == 128) && (HEIGHT == 32)) {
     comPins = 0x02;
@@ -563,6 +565,11 @@ bool Adafruit_SSD1306::begin(uint8_t vcs, uint8_t addr, bool reset,
   } else if ((WIDTH == 96) && (HEIGHT == 16)) {
     comPins = 0x2; // ada x12
     contrast = (vccstate == SSD1306_EXTERNALVCC) ? 0x10 : 0xAF;
+  } else if ((WIDTH == 64) && (HEIGHT == 48)) {
+    comPins = 0x12;
+    contrast = (vccstate == SSD1306_EXTERNALVCC) ? 0x9F : 0xCF;
+    colStartAddr += 32;
+    colEndAddr += 32;
   } else {
     // Other screen varieties -- TBD
   }
@@ -927,12 +934,13 @@ void Adafruit_SSD1306::display(void) {
   TRANSACTION_START
   static const uint8_t PROGMEM dlist1[] = {
       SSD1306_PAGEADDR,
-      0,                      // Page start address
-      0xFF,                   // Page end (not really, but works here)
-      SSD1306_COLUMNADDR, 0}; // Column start address
+      0,
+      0xFF                   // Page end (not really, but works here)
+  };
   ssd1306_commandList(dlist1, sizeof(dlist1));
-  ssd1306_command1(WIDTH - 1); // Column end address
-
+  ssd1306_command1(SSD1306_COLUMNADDR);
+  ssd1306_command1(colStartAddr);   // Column start address
+  ssd1306_command1(colEndAddr - 1); // Column end address
 #if defined(ESP8266)
   // ESP8266 needs a periodic yield() call to avoid watchdog reset.
   // With the limited size of SSD1306 displays, and the fast bitrate
